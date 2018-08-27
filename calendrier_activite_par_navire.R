@@ -136,6 +136,10 @@ if (exists("marees_droplines")&&nrow(marees_droplines)>0) {
 if (nrow(dates_marees_FINSS)==0 && nrow(dates_marees_FINSS_deducted)>0) {
   dates_marees_FINSS=dates_marees_FINSS_deducted
 }
+if (nrow(FINSS)==0 && nrow(FINSS_deducted)>0) {
+  FINSS=FINSS_deducted
+}
+
 
 ### --- Concaténation des sources, par navire*jour
 
@@ -287,7 +291,7 @@ calendrier_mensuel$PORT_EXP=as.character(calendrier_mensuel$PORT_EXP)
 calendrier_mensuel[is.na(calendrier_mensuel$PORT),]$PORT=calendrier_mensuel[is.na(calendrier_mensuel$PORT),]$PORT_EXP
 calendrier_mensuel=calendrier_mensuel[order(calendrier_mensuel$NAVIRE,calendrier_mensuel$MOIS),c("NAVIRE","GR_VESSEL_TYPE","MOIS","PORT","JOURS_DE_MER","METIER_COD","METIER_LIB","QUANTITE")]
 
-write.table(calendrier_journalier,paste(name_folder,"/calendrier_journalier_",annee,".csv",sep=""),row.names=F,sep=";")
-write.table(calendrier_mensuel,paste(name_folder,"/calendrier_mensuel_",annee,".csv",sep=""),row.names=F,sep=";")
+write.table(calendrier_journalier,paste(name_folder,"/calendrier_journalier_",annee,".csv",sep=""),row.names=F,sep=";",na="")
+write.table(calendrier_mensuel,paste(name_folder,"/calendrier_mensuel_",annee,".csv",sep=""),row.names=F,sep=";",na="")
 
 

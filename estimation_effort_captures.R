@@ -160,14 +160,15 @@ if (nrow(marees_sea_cucumbers)>0) {
 }
 
 # quels sont les metiers inconnus
-nrow(marees_CAS[is.na(marees_CAS$GR_METIER_COD),]) #94
+nrow(marees_CAS[is.na(marees_CAS$GR_METIER_COD),]) #0
 nrow(marees_droplines[is.na(marees_droplines$GR_METIER_COD),]) #0
 nrow(marees_SEMI_LL[is.na(marees_SEMI_LL$GR_METIER_COD),]) #0
 nrow(marees_lobsters[is.na(marees_lobsters$GR_METIER_COD),]) #0
 nrow(marees_sea_cucumbers[is.na(marees_sea_cucumbers$GR_METIER_COD),]) #0
 
-# on retire les 94 marées avec metiers inconnu sur les 3213 marées CAS
-marees_CAS=marees_CAS[!is.na(marees_CAS$GR_METIER_COD),]
+# on affecte un metier inconnu
+# marees_CAS$GR_METIER_COD=as.character(marees_CAS$GR_METIER_COD)
+# marees_CAS$GR_METIER_COD[is.na(marees_CAS$GR_METIER_COD)]="N/A"
 
 marees_x_bar=rbind(setNames(unique(marees_CAS[,c("ID_MAREE","GR_VESSEL_TYPE","GR_METIER_COD","GR_METIER_LIB","GR_ESP_COD","GR_ESP_LIB","QUANTITE_CAP_VIF")]),c("ID_MAREE","GR_VESSEL_TYPE","METIER_COD","METIER_LIB","GR_ESP_COD","GR_ESP_LIB","QUANTITE")),
                    setNames(unique(marees_droplines[,c("TripID","GR_VESSEL_TYPE","GR_METIER_COD","GR_METIER_LIB","GR_ESP_COD","GR_ESP_LIB","CatchWeight")]),c("ID_MAREE","GR_VESSEL_TYPE","METIER_COD","METIER_LIB","GR_ESP_COD","GR_ESP_LIB","QUANTITE")),

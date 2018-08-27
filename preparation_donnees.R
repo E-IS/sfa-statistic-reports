@@ -3,7 +3,16 @@
 #folder="D:/SFA Data/Artisanal Data/SIH SYC 2016/Lancement estimations R"
 #setwd(folder) 
 
-fichier_flotte=read.csv("Référentiels/fichier_flotte.csv",h=T,sep=";")
+fichier_flotte=read.csv(paste0("Données/fichier_flotte_",annee,".csv"),h=T,sep=";")
+
+### --- Importation du complément de fichier flotte (notamment pour les sea cucumbers)
+fichier_flotte_complement=read.csv("Données/fichier_flotte_complement.csv",h=T,sep=";")
+
+fichier_flotte=rbind(fichier_flotte,fichier_flotte_complement)
+fichier_flotte=fichier_flotte[match(unique(fichier_flotte$NAVIRE),fichier_flotte$NAVIRE),]
+
+fichier_flotte[fichier_flotte$NAVIRE=="SZ1751",]
+fichier_flotte[fichier_flotte$NAVIRE=="SZ1365",]
 
 ### --- Importation du référentiel des ports avec hiérarchie
 
@@ -56,21 +65,28 @@ if (file.exists(FINSS_file2)) {
 
 ### --- Importation des échantillons CAS
 
-CaptureEch=read.csv("Données/P03_OBSDEB_CAPTURE.csv",h=T,sep=";",dec=",",encoding="UTF-8")
+CaptureEch=read.csv("Données/P03_OBSDEB_CAPTURE.csv",h=T,sep=";",dec=".",encoding="UTF-8")
 #CaptureEch$ANNEE=sapply(as.character(CaptureEch$DATE_DEBARQ),function(x){tmp<-unlist(strsplit(x,' '))[1];unlist(strsplit(tmp,'/'))[3]})
 #CaptureEch$MOIS=as.numeric(sapply(as.character(CaptureEch$DATE_DEBARQ),function(x){tmp<-unlist(strsplit(x,' '))[1];unlist(strsplit(tmp,'/'))[2]}))
 CaptureEch=CaptureEch[CaptureEch$ANNEE==annee,]
 
-MareeEch=read.csv("Données/P03_OBSDEB_MAREE.csv",h=T,sep=";",dec=",",encoding="UTF-8")
+sum(CaptureEch$QUANTITE_CAP_VIF[!is.na(CaptureEch$QUANTITE_CAP_VIF)])
+
+MareeEch=read.csv("Données/P03_OBSDEB_MAREE.csv",h=T,sep=";",dec=".",encoding="UTF-8")
 MareeEch=MareeEch[MareeEch$ANNEE==annee,]
 MareeEch$PORTDEB_COD=as.character(MareeEch$PORTDEB_COD)
 MareeEch$DATE_DEPART=as.POSIXct(MareeEch$DATE_DEPART,"%d/%m/%Y",tz="Europe/Paris")
 MareeEch$DATE_RETOUR=as.POSIXct(MareeEch$DATE_RETOUR,"%d/%m/%Y",tz="Europe/Paris")
 MareeEch$DATE_DEBARQ=as.POSIXct(MareeEch$DATE_DEBARQ,"%d/%m/%Y",tz="Europe/Paris")
 
+# le metier est bien connu dans Obsdeb
+MareeEch$GR_METIER_COD=as.character(MareeEch$METIER_COD_M)
+MareeEch$GR_METIER_LIB=as.character(MareeEch$METIER_LIB_M)
+
 #Ajout de la typologie navire aux échantillons
 
 naviresECH=unique(MareeEch[,c("ID_MAREE","NAVIRE","IMMATRICULATION","TYPE_NAVIRE")])
+#length(unique(naviresECH$IMMATRICULATION))
 naviresECH=merge(naviresECH,fichier_flotte[,c("NAVIRE","GR_VESSEL_TYPE")],by.x="IMMATRICULATION",by.y="NAVIRE",all.x=T)
 naviresECH$GR_VESSEL_TYPE=as.character(naviresECH$GR_VESSEL_TYPE)
 naviresECH$TYPE_NAVIRE=as.character(naviresECH$TYPE_NAVIRE)
@@ -90,6 +106,7 @@ CaptureEch=merge(CaptureEch,unique(MareeEch[,c("ID_MAREE","GR_VESSEL_TYPE")]),al
 
 length(unique(MareeEch$NAVIRE)) #385 navires échantillonnés en 2015, 306 en 2017
 length(unique(MareeEch$ID_MAREE)) #6406 marées observées en 2015, 2783 en 2017
+sum(CaptureEch$QUANTITE_CAP_VIF[!is.na(CaptureEch$QUANTITE_CAP_VIF)])
 round(sum(CaptureEch$QUANTITE_CAP_VIF)/1000) #833t observées au débarquement, 34t en 2017
 
 ### --- Ajout des engins agrégés
@@ -132,29 +149,51 @@ source("Codes R/consolidation_marees_AlgoPesca.r")
 
 ### --- Importation des log-books des Semi-Longliners 
 
-data_SEMI_LL=read.csv("Données/SEMI_LL_DATA_2017.csv",sep=";",h=T)
-data_SEMI_LL=data_SEMI_LL[data_SEMI_LL$LogYear==annee,]
+data_SEMI_LL=read.csv("Données/SEMI_LL_DATA_2017.csv",sep=";",dec=".",h=T)
+data_SEMI_LL=data_SEMI_LL[data_SEMI_LL$TripYear==annee,]
 if (nrow(data_SEMI_LL) > 0) {
   data_SEMI_LL$NatRegNumber=gsub(' ','',as.character(data_SEMI_LL$NatRegNumber))
-  data_SEMI_LL$FAOSpeciesCode=gsub(' ','',data_SEMI_LL$FAOSpeciesCode)
+  data_SEMI_LL$FAOSpeciesCode=gsub(' ','',data_SEMI_LL$SpeciesAcode)
   #Ports de retour = toujours Victoria en 2015, avec un peu de Providence en 2016
   data_SEMI_LL$PORT_COD="LS-VC"
   data_SEMI_LL$PORT_LIB="Victoria"
+  
   #Reconstitution des marées
+  
+  # NEW PROCESS
   data_SEMI_LL$DepartureDate=as.character(data_SEMI_LL$DepartureDate)
   data_SEMI_LL$ArrivalDate=as.character(data_SEMI_LL$ArrivalDate)
-  data_SEMI_LL$JOUR_DEPART=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][1])
-  data_SEMI_LL$JOUR_RETOUR=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][1])
-  data_SEMI_LL$MOIS_DEPART=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][2])
-  data_SEMI_LL$MOIS_RETOUR=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][2])
-  data_SEMI_LL$ANNEE_DEPART=paste("20",sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][3]),sep="")
-  data_SEMI_LL$ANNEE_RETOUR=paste("20",sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][3]),sep="")
-  mois=data.frame(MOIS=c("janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"),NUM=1:12)
-  mois$NUM=ifelse(nchar(mois$NUM)==1,paste("0",mois$NUM,sep=""),mois$NUM)
-  data_SEMI_LL=merge(data_SEMI_LL,setNames(mois,c("MOIS","MOIS_DEP")),by.x="MOIS_DEPART",by.y="MOIS")
-  data_SEMI_LL=merge(data_SEMI_LL,setNames(mois,c("MOIS","MOIS_RET")),by.x="MOIS_RETOUR",by.y="MOIS")
-  data_SEMI_LL$DATE_DEPART=as.Date(format(as.POSIXct(paste(data_SEMI_LL$JOUR_DEPART,data_SEMI_LL$MOIS_DEP,data_SEMI_LL$ANNEE_DEPART,sep="/"),"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
-  data_SEMI_LL$DATE_RETOUR=as.Date(format(as.POSIXct(paste(data_SEMI_LL$JOUR_RETOUR,data_SEMI_LL$MOIS_RET,data_SEMI_LL$ANNEE_RETOUR,sep="/"),"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
+  data_SEMI_LL$DATE_DEPART=as.Date(format(as.POSIXct(data_SEMI_LL$DepartureDate,"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
+  data_SEMI_LL$DATE_RETOUR=as.Date(format(as.POSIXct(data_SEMI_LL$ArrivalDate,"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
+  data_SEMI_LL$Catch_Kg=data_SEMI_LL$GrLogWgtRFinal
+  
+  # OLD PROCESS
+  # data_SEMI_LL$DepartureDate=as.character(data_SEMI_LL$DepartureDate)
+  # data_SEMI_LL$ArrivalDate=as.character(data_SEMI_LL$ArrivalDate)
+  # 
+  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","févr",data_SEMI_LL$DepartureDate[x]))
+  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","déc",data_SEMI_LL$DepartureDate[x]))
+  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","août",data_SEMI_LL$DepartureDate[x]))
+  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","févr",data_SEMI_LL$ArrivalDate[x]))
+  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","déc",data_SEMI_LL$ArrivalDate[x]))
+  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","août",data_SEMI_LL$ArrivalDate[x]))
+  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","févr",data_SEMI_LL$LogDate[x]))
+  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","déc",data_SEMI_LL$LogDate[x]))
+  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","août",data_SEMI_LL$LogDate[x]))
+  
+  # data_SEMI_LL$JOUR_DEPART=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][1])
+  # data_SEMI_LL$JOUR_RETOUR=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][1])
+  # data_SEMI_LL$MOIS_DEPART=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][2])
+  # data_SEMI_LL$MOIS_RETOUR=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][2])
+  # data_SEMI_LL$ANNEE_DEPART=paste("20",sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][3]),sep="")
+  # data_SEMI_LL$ANNEE_RETOUR=paste("20",sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][3]),sep="")
+  # mois=data.frame(MOIS=c("janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"),NUM=1:12)
+  # mois$NUM=ifelse(nchar(mois$NUM)==1,paste("0",mois$NUM,sep=""),mois$NUM)
+  # data_SEMI_LL=merge(data_SEMI_LL,setNames(mois,c("MOIS","MOIS_DEP")),by.x="MOIS_DEPART",by.y="MOIS")
+  # data_SEMI_LL=merge(data_SEMI_LL,setNames(mois,c("MOIS","MOIS_RET")),by.x="MOIS_RETOUR",by.y="MOIS")
+  # data_SEMI_LL$DATE_DEPART=as.Date(format(as.POSIXct(paste(data_SEMI_LL$JOUR_DEPART,data_SEMI_LL$MOIS_DEP,data_SEMI_LL$ANNEE_DEPART,sep="/"),"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
+  # data_SEMI_LL$DATE_RETOUR=as.Date(format(as.POSIXct(paste(data_SEMI_LL$JOUR_RETOUR,data_SEMI_LL$MOIS_RET,data_SEMI_LL$ANNEE_RETOUR,sep="/"),"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
+  
   marees_SEMI_LL=unique(data_SEMI_LL[,c("TripHistoryID","NatRegNumber","DATE_DEPART","DATE_RETOUR","PORT_COD","PORT_LIB")])
   captures_SEMI_LL=summaryBy(data=data_SEMI_LL,Catch_Kg~TripHistoryID+FAOSpeciesCode+Species,FUN=function(x){if(all(is.na(x))) return(NA); sum(x,na.rm=T)},keep.names=T)
   captures_SEMI_LL$FAOSpeciesCode=as.character(captures_SEMI_LL$FAOSpeciesCode)
@@ -169,10 +208,14 @@ if (nrow(data_SEMI_LL) > 0) {
   marees_SEMI_LL$GR_METIER_LIB="Drifting Longlines for Large Pelagics"
   marees_SEMI_LL$JDM_METIER=round(as.numeric(difftime(marees_SEMI_LL$DATE_RETOUR,marees_SEMI_LL$DATE_DEPART,units="days")))
   marees_SEMI_LL$JDM_METIER=replace(marees_SEMI_LL$JDM_METIER,marees_SEMI_LL$JDM_METIER<1,1)
-  marees_SEMI_LL=merge(marees_SEMI_LL,fichier_flotte[,c("NAVIRE","GR_VESSEL_TYPE")],by.x="NatRegNumber",by.y="NAVIRE")
+  marees_SEMI_LL=merge(marees_SEMI_LL,fichier_flotte[,c("NAVIRE","GR_VESSEL_TYPE")],by.x="NatRegNumber",by.y="NAVIRE",all.x = T)
 } else {
   marees_SEMI_LL=setNames(data.frame(matrix(ncol = 15, nrow = 0)), c("NatRegNumber","TripHistoryID","DATE_DEPART","DATE_RETOUR","PORT_COD","PORT_LIB","GR_ESP_COD","GR_ESP_LIB","Catch_Kg","GR_ENGIN_COD","GR_ENGIN_LIB","GR_METIER_COD","GR_METIER_LIB","JDM_METIER","GR_VESSEL_TYPE"))
 }
+
+sum(data_SEMI_LL$Catch_Kg)
+sum(captures_SEMI_LL$Catch_Kg)
+sum(marees_SEMI_LL$Catch_Kg)
 
 ### --- Importation des log-books des lobsters
 
@@ -181,7 +224,7 @@ logbooks_lobsters_file="Données/Lobster_20162017_Logbook.csv"
 if (file.exists(logbooks_lobsters_file)) {
   logbooks_lobsters=read.csv(logbooks_lobsters_file,sep=";",h=T)
   logbooks_lobsters=logbooks_lobsters[logbooks_lobsters$Year==annee,]
-  logbooks_lobsters$NAVIRE=paste("SZ",logbooks_lobsters$SZ,sep="")  # !!!!! PAS DE COLONNE SZ !!!!!
+  logbooks_lobsters$NAVIRE=paste("SZ",logbooks_lobsters$SZ,sep="")
   #Renommer quelques ports pour cohérence avec référentiel
   logbooks_lobsters$Landing.Site=as.character(logbooks_lobsters$Landing.Site)
   logbooks_lobsters$Landing.Site=replace(logbooks_lobsters$Landing.Site,logbooks_lobsters$Landing.Site=="Cascade","Cascade /Se Island")

@@ -1,6 +1,5 @@
 ### --- Reconstruction du fichier MAREES_VMS_SORTIE_ALGOPESCA
-#source("Codes R/preparation_marees_AlgoPesca.r")
-
+source("Codes R/preparation_marees_AlgoPesca.r")
 
 ### --- Consolidation marées en sortie d'AlgoPesca : 
 # 1) Application d'un seuil de tolérance sur la distance début marée et fin de marée par rapport au port
