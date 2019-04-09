@@ -1,18 +1,15 @@
 
 ### --- Importation du fichier flotte
-#folder="D:/SFA Data/Artisanal Data/SIH SYC 2016/Lancement estimations R"
-#setwd(folder) 
-
-fichier_flotte=read.csv(paste0("Données/fichier_flotte_",annee,".csv"),h=T,sep=";")
+fichier_flotte=read.csv(fichier_flotte1,h=T,sep=";")
 
 ### --- Importation du complément de fichier flotte (notamment pour les sea cucumbers)
-fichier_flotte_complement=read.csv("Données/fichier_flotte_complement.csv",h=T,sep=";")
+fichier_flotte_complement=read.csv(fichier_flotte2,h=T,sep=";")
 
 fichier_flotte=rbind(fichier_flotte,fichier_flotte_complement)
 fichier_flotte=fichier_flotte[match(unique(fichier_flotte$NAVIRE),fichier_flotte$NAVIRE),]
 
-fichier_flotte[fichier_flotte$NAVIRE=="SZ1751",]
-fichier_flotte[fichier_flotte$NAVIRE=="SZ1365",]
+#fichier_flotte[fichier_flotte$NAVIRE=="SZ1751",]
+#fichier_flotte[fichier_flotte$NAVIRE=="SZ1365",]
 
 ### --- Importation du référentiel des ports avec hiérarchie
 
@@ -28,9 +25,8 @@ ref_agregation_especes=read.csv("Référentiels/agregation_especes.csv",h=T,sep=";
 
 ### --- Importation du fichier FINSS
 
-FINSS_file="Données/ARTISANAL_FINSS.csv"
-if (file.exists(FINSS_file)) {
-  FINSS=read.csv(FINSS_file,h=T,sep=",")
+if (file.exists(fichier_FINSS)) {
+  FINSS=read.csv(fichier_FINSS,h=T,sep=",")
   FINSS=unique(FINSS[FINSS$TripYear==annee,])
   FINSS$DepartureDate=as.POSIXct(FINSS$DepartureDate,"%d/%m/%Y",tz="Europe/Paris")
   FINSS$ArrivalDate=as.POSIXct(FINSS$ArrivalDate,"%d/%m/%Y",tz="Europe/Paris")
@@ -52,9 +48,9 @@ if (file.exists(FINSS_file)) {
   FINSS$GR_VESSEL_TYPE=as.character(FINSS$GR_VESSEL_TYPE)
   FINSS=unique(FINSS[order(FINSS$SZ,FINSS$TripYear,FINSS$Weeknumber,FINSS$TripID,FINSS$LogDate),c("SZ","GR_VESSEL_TYPE","TripYear","TripMonth","Weeknumber","TripID","DepartureDate","ArrivalDate","LogDate","LogEvent","SIH_LOCATION_COD","SIH_LOCATION_LIB")])
 }
-FINSS_file2="Données/DEDUCTED_ARTISANAL_FINSS.csv"
-if (file.exists(FINSS_file2)) {
-  FINSS_deducted=read.csv(FINSS_file2,h=T,sep=";")
+
+if (file.exists(fichier_FINSS_from_OBSDEB)) {
+  FINSS_deducted=read.csv(fichier_FINSS_from_OBSDEB,h=T,sep=";")
   FINSS_deducted=unique(FINSS_deducted[FINSS_deducted$TripYear==annee,])
   FINSS_deducted$DepartureDate=as.POSIXct(FINSS_deducted$DepartureDate,"%d/%m/%Y",tz="Europe/Paris")
   FINSS_deducted$ArrivalDate=as.POSIXct(FINSS_deducted$ArrivalDate,"%d/%m/%Y",tz="Europe/Paris")
@@ -65,14 +61,21 @@ if (file.exists(FINSS_file2)) {
 
 ### --- Importation des échantillons CAS
 
-CaptureEch=read.csv("Données/P03_OBSDEB_CAPTURE.csv",h=T,sep=";",dec=".",encoding="UTF-8")
-#CaptureEch$ANNEE=sapply(as.character(CaptureEch$DATE_DEBARQ),function(x){tmp<-unlist(strsplit(x,' '))[1];unlist(strsplit(tmp,'/'))[3]})
-#CaptureEch$MOIS=as.numeric(sapply(as.character(CaptureEch$DATE_DEBARQ),function(x){tmp<-unlist(strsplit(x,' '))[1];unlist(strsplit(tmp,'/'))[2]}))
+CaptureEch=read.csv(fichier_OBSDEB_CAPTURE,h=T,sep=";",dec=".",encoding="UTF-8")
 CaptureEch=CaptureEch[CaptureEch$ANNEE==annee,]
+
+# Ajout des captures par lot
+CaptureEch2=read.csv(fichier_OBSDEB_CAPTURE_LOT,h=T,sep=";",dec=".",encoding="UTF-8")
+CaptureEch2=CaptureEch2[CaptureEch$ANNEE==annee,]
+
+# union
+CaptureEch$NAVIRE=as.character(CaptureEch$NAVIRE)
+CaptureEch2$NAVIRE=as.character(CaptureEch2$NAVIRE)
+CaptureEch=rbind(CaptureEch, CaptureEch2)
 
 sum(CaptureEch$QUANTITE_CAP_VIF[!is.na(CaptureEch$QUANTITE_CAP_VIF)])
 
-MareeEch=read.csv("Données/P03_OBSDEB_MAREE.csv",h=T,sep=";",dec=".",encoding="UTF-8")
+MareeEch=read.csv(fichier_OBSDEB_MAREE,h=T,sep=";",dec=".",encoding="UTF-8")
 MareeEch=MareeEch[MareeEch$ANNEE==annee,]
 MareeEch$PORTDEB_COD=as.character(MareeEch$PORTDEB_COD)
 MareeEch$DATE_DEPART=as.POSIXct(MareeEch$DATE_DEPART,"%d/%m/%Y",tz="Europe/Paris")
@@ -104,10 +107,10 @@ if(nrow(nav_typo_inconnue)>0){
 MareeEch=merge(MareeEch,naviresECH[,c("ID_MAREE","GR_VESSEL_TYPE")],by="ID_MAREE",all.x=T)
 CaptureEch=merge(CaptureEch,unique(MareeEch[,c("ID_MAREE","GR_VESSEL_TYPE")]),all.x=T)
 
-length(unique(MareeEch$NAVIRE)) #385 navires échantillonnés en 2015, 306 en 2017
-length(unique(MareeEch$ID_MAREE)) #6406 marées observées en 2015, 2783 en 2017
-sum(CaptureEch$QUANTITE_CAP_VIF[!is.na(CaptureEch$QUANTITE_CAP_VIF)])
-round(sum(CaptureEch$QUANTITE_CAP_VIF)/1000) #833t observées au débarquement, 34t en 2017
+#length(unique(MareeEch$NAVIRE)) #385 navires échantillonnés en 2015, 306 en 2017
+#length(unique(MareeEch$ID_MAREE)) #6406 marées observées en 2015, 2783 en 2017
+#sum(CaptureEch$QUANTITE_CAP_VIF[!is.na(CaptureEch$QUANTITE_CAP_VIF)])
+#round(sum(CaptureEch$QUANTITE_CAP_VIF)/1000) #833t observées au débarquement, 34t en 2017
 
 ### --- Ajout des engins agrégés
 
@@ -149,7 +152,7 @@ source("Codes R/consolidation_marees_AlgoPesca.r")
 
 ### --- Importation des log-books des Semi-Longliners 
 
-data_SEMI_LL=read.csv("Données/SEMI_LL_DATA_2017.csv",sep=";",dec=".",h=T)
+data_SEMI_LL=read.csv(fichier_SEMI_LL,sep=";",dec=".",h=T)
 data_SEMI_LL=data_SEMI_LL[data_SEMI_LL$TripYear==annee,]
 if (nrow(data_SEMI_LL) > 0) {
   data_SEMI_LL$NatRegNumber=gsub(' ','',as.character(data_SEMI_LL$NatRegNumber))
@@ -171,15 +174,15 @@ if (nrow(data_SEMI_LL) > 0) {
   # data_SEMI_LL$DepartureDate=as.character(data_SEMI_LL$DepartureDate)
   # data_SEMI_LL$ArrivalDate=as.character(data_SEMI_LL$ArrivalDate)
   # 
-  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","févr",data_SEMI_LL$DepartureDate[x]))
-  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","déc",data_SEMI_LL$DepartureDate[x]))
-  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","août",data_SEMI_LL$DepartureDate[x]))
-  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","févr",data_SEMI_LL$ArrivalDate[x]))
-  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","déc",data_SEMI_LL$ArrivalDate[x]))
-  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","août",data_SEMI_LL$ArrivalDate[x]))
-  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","févr",data_SEMI_LL$LogDate[x]))
-  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","déc",data_SEMI_LL$LogDate[x]))
-  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","août",data_SEMI_LL$LogDate[x]))
+  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","f?vr",data_SEMI_LL$DepartureDate[x]))
+  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","d?c",data_SEMI_LL$DepartureDate[x]))
+  # data_SEMI_LL$DepartureDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","ao?t",data_SEMI_LL$DepartureDate[x]))
+  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","f?vr",data_SEMI_LL$ArrivalDate[x]))
+  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","d?c",data_SEMI_LL$ArrivalDate[x]))
+  # data_SEMI_LL$ArrivalDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","ao?t",data_SEMI_LL$ArrivalDate[x]))
+  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("f,vr","f?vr",data_SEMI_LL$LogDate[x]))
+  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("d,c","d?c",data_SEMI_LL$LogDate[x]))
+  # data_SEMI_LL$LogDate=sapply(1:nrow(data_SEMI_LL),function(x)gsub("ao-t","ao?t",data_SEMI_LL$LogDate[x]))
   
   # data_SEMI_LL$JOUR_DEPART=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][1])
   # data_SEMI_LL$JOUR_RETOUR=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][1])
@@ -187,7 +190,7 @@ if (nrow(data_SEMI_LL) > 0) {
   # data_SEMI_LL$MOIS_RETOUR=sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][2])
   # data_SEMI_LL$ANNEE_DEPART=paste("20",sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$DepartureDate[x], '-')[[1]][3]),sep="")
   # data_SEMI_LL$ANNEE_RETOUR=paste("20",sapply(1:nrow(data_SEMI_LL),function(x)strsplit(data_SEMI_LL$ArrivalDate[x], '-')[[1]][3]),sep="")
-  # mois=data.frame(MOIS=c("janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"),NUM=1:12)
+  # mois=data.frame(MOIS=c("janv","f?vr","mars","avr","mai","juin","juil","ao?t","sept","oct","nov","d?c"),NUM=1:12)
   # mois$NUM=ifelse(nchar(mois$NUM)==1,paste("0",mois$NUM,sep=""),mois$NUM)
   # data_SEMI_LL=merge(data_SEMI_LL,setNames(mois,c("MOIS","MOIS_DEP")),by.x="MOIS_DEPART",by.y="MOIS")
   # data_SEMI_LL=merge(data_SEMI_LL,setNames(mois,c("MOIS","MOIS_RET")),by.x="MOIS_RETOUR",by.y="MOIS")
@@ -220,9 +223,9 @@ sum(marees_SEMI_LL$Catch_Kg)
 ### --- Importation des log-books des lobsters
 
 #Lobster = du 01/12 au 29/02, métier = Snorkling for Lobsters
-logbooks_lobsters_file="Données/Lobster_20162017_Logbook.csv"
-if (file.exists(logbooks_lobsters_file)) {
-  logbooks_lobsters=read.csv(logbooks_lobsters_file,sep=";",h=T)
+
+if (file.exists(fichier_lobster)) {
+  logbooks_lobsters=read.csv(fichier_lobster,sep=";",h=T)
   logbooks_lobsters=logbooks_lobsters[logbooks_lobsters$Year==annee,]
   logbooks_lobsters$NAVIRE=paste("SZ",logbooks_lobsters$SZ,sep="")
   #Renommer quelques ports pour cohérence avec référentiel
@@ -298,10 +301,10 @@ port_plus_frequent$PORT_EXP=apply(port_plus_frequent,1,function(x){ind=names(whi
 
 ### --- Importation des log-books des sea cucumbers 
 
-#Sea cucumber = du 01/10 au 30/06, métier = Scuba diving for Sea cucumbers
-logbooks_sea_cucumbers_file="Données/Seacucumber_2016_2017.csv"
-if (file.exists(logbooks_sea_cucumbers_file)) {
-  logbooks_sea_cucumbers=read.csv(logbooks_sea_cucumbers_file,sep=";",h=T)
+#Sea cucumber = du 01/10 au 30/06, m?tier = Scuba diving for Sea cucumbers
+
+if (file.exists(fichier_sea_cucumbers)) {
+  logbooks_sea_cucumbers=read.csv(fichier_sea_cucumbers,sep=";",h=T)
   logbooks_sea_cucumbers=logbooks_sea_cucumbers[logbooks_sea_cucumbers$Year==annee,]
   logbooks_sea_cucumbers$NAVIRE=paste("SZ",logbooks_sea_cucumbers$SZ.Number,sep="")
   
@@ -310,7 +313,7 @@ if (file.exists(logbooks_sea_cucumbers_file)) {
   #logbooks_sea_cucumbers$FISHING_DAY=sapply(1:nrow(logbooks_sea_cucumbers),function(x)strsplit(logbooks_sea_cucumbers$FishingDate[x], '-')[[1]][1])
   #logbooks_sea_cucumbers$FISHING_MONTH=sapply(1:nrow(logbooks_sea_cucumbers),function(x)strsplit(logbooks_sea_cucumbers$FishingDate[x], '-')[[1]][2])
   #logbooks_sea_cucumbers$FISHING_YEAR=paste("20",sapply(1:nrow(logbooks_sea_cucumbers),function(x)strsplit(logbooks_sea_cucumbers$FishingDate[x], '-')[[1]][3]),sep="")
-  #mois=data.frame(MOIS=c("janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"),NUM=1:12)
+  #mois=data.frame(MOIS=c("janv","f?vr","mars","avr","mai","juin","juil","ao?t","sept","oct","nov","d?c"),NUM=1:12)
   #mois$NUM=ifelse(nchar(mois$NUM)==1,paste("0",mois$NUM,sep=""),mois$NUM)
   #logbooks_sea_cucumbers=merge(logbooks_sea_cucumbers,setNames(mois,c("MOIS","MOIS_PECHE")),by.x="FISHING_MONTH",by.y="MOIS")
   #logbooks_sea_cucumbers$FISHING_DATE=as.Date(format(as.POSIXct(paste(logbooks_sea_cucumbers$FISHING_DAY,logbooks_sea_cucumbers$MOIS_PECHE,logbooks_sea_cucumbers$FISHING_YEAR,sep="/"),"%d/%m/%Y",tz="Europe/Paris"),"%d/%m/%Y"),"%d/%m/%Y")
@@ -332,7 +335,7 @@ marees_sea_cucumbers=merge(marees_sea_cucumbers,fichier_flotte[,c("NAVIRE","GR_V
 
 ### --- Importation des échantillons droplines
 
-droplines=read.csv("Données/droplines_catches.csv",sep=";",h=T)
+droplines=read.csv(fichier_droplines,sep=";",h=T)
 droplines$NAVIRE=paste("SZ",droplines$VesselSZ,sep="")
 droplines$DepartureDate=as.Date(as.character(droplines$DepartureDate),"%d/%m/%Y")
 droplines$ArrivalDate=as.Date(as.character(droplines$ArrivalDate),"%d/%m/%Y")
@@ -354,7 +357,7 @@ if("NK"%in%droplines$Gear1){
 if (nrow(droplines)>0)
   droplines=summaryBy(data=droplines,CatchWeight~TripID+NAVIRE+DepartureDate+ArrivalDate+Gear1+Gear2+GR_ESP_COD+GR_ESP_LIB,FUN=sum,keep.names=T)
 
-# A) Gestion des marées multi-engins (lorsque plusieurs engins par marée) => règle d'affectation des espèces aux engins :
+# A) Gestion des marées multi-engins (lorsque plusieurs engins par marée) => rêgle d'affectation des espèces aux engins :
 #    1) LH + LLB => séparer captures en 2 et les réaffecter à chaque engin
 #    2) GHT + LLB (ou LH) => affecte automatiquement RAQ (crabe) + MZZ de l'ensemble de la marée à GHT. Isoler ce métier GHTRAQ de tout le reste = métier LLBDEM (poissons sans MZZ)
 # B) Gestion des marées mono-engin : rester au niveau de l'engin déclaré : LLB ou LH

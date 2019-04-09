@@ -7,10 +7,6 @@ source("Codes R/preparation_marees_AlgoPesca.r")
 
 ## -- Importation des marées VMS issues du traitement AlgoPesca 2014-2015
 
-#folder="D:/SFA Data/Artisanal Data/SIH SYC 2016/Lancement estimations R"
-#setwd(folder) 
-
-
 marees_VMS=read.csv("Données/MAREES_VMS_SORTIE_ALGOPESCA.csv",sep=";",header=T)
 #Marées VMS en temps UTC. Seychelles = UTC+4 => ajouter 4h
 marees_VMS$DEPARTURE_DATE_TIME=strptime(as.character(marees_VMS$DEPARTURE_DATE_TIME),"%Y-%m-%d %H:%M:%S")+4*3600
@@ -27,10 +23,10 @@ seuil_distance=5
 marees_VMS$DEPARTURE_QUALITY_NEW=marees_VMS$DEPARTURE_QUALITY
 marees_VMS$RETURN_QUALITY_NEW=marees_VMS$RETURN_QUALITY
 if (!is.null(marees_VMS$DEPARTURE_LOCATION_DIST)) {
-  marees_VMS[marees_VMS$DEPARTURE_LOCATION_DIST<=seuil_distance,]$DEPARTURE_QUALITY_NEW="OK"
+  marees_VMS[!is.na(marees_VMS$DEPARTURE_LOCATION_DIST) & marees_VMS$DEPARTURE_LOCATION_DIST<=seuil_distance,]$DEPARTURE_QUALITY_NEW="OK"
 }
 if (!is.null(marees_VMS$RETURN_LOCATION_DIST)) {
-  marees_VMS[marees_VMS$RETURN_LOCATION_DIST<=seuil_distance,]$RETURN_QUALITY_NEW="OK"
+  marees_VMS[!is.na(marees_VMS$RETURN_LOCATION_DIST) & marees_VMS$RETURN_LOCATION_DIST<=seuil_distance,]$RETURN_QUALITY_NEW="OK"
 }
 
 ### --- Identifier et raccrocher les morceaux de marées
@@ -91,7 +87,7 @@ marees_VMS_finales$RETURN_LOCATION_LABEL=as.character(marees_VMS_finales$RETURN_
 #Pointeur d'effort de pêche : si temps de pêche supérieur à 0h
 if (nrow(marees_VMS_finales) > 0) {
   marees_VMS_finales$MAREE_EFFORT=0
-  marees_VMS_finales[marees_VMS_finales$FISHING_TIME>0,]$MAREE_EFFORT=1
+  marees_VMS_finales[!is.na(marees_VMS_finales$FISHING_TIME) & marees_VMS_finales$FISHING_TIME>0,]$MAREE_EFFORT=1
   marees_VMS_finales=marees_VMS_finales[order(marees_VMS_finales$VESSEL_FK,marees_VMS_finales$RETURN_DATE_TIME),]
   marees_VMS_finales$ID_MAREE_VMS=1:nrow(marees_VMS_finales)
   marees_VMS_finales=setNames(marees_VMS_finales[,c("VESSEL_FK","GR_VESSEL_TYPE","ID_MAREE_VMS","ANNEE","MOIS","DEPARTURE_LOCATION_LABEL","DEPARTURE_LOCATION_NAME","RETURN_LOCATION_LABEL","RETURN_LOCATION_NAME","DEPARTURE_DATE_TIME","RETURN_DATE_TIME","MAREE_EFFORT")],c("NAVIRE","TYPE_NAVIRE","ID_MAREE_VMS","ANNEE","MOIS","PORT_DEPART_COD","PORT_DEPART_LIB","PORT_RETOUR_COD","PORT_RETOUR_LIB","DATE_DEPART","DATE_RETOUR","MAREE_EFFORT"))
